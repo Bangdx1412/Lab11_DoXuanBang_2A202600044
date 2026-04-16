@@ -84,13 +84,40 @@ class ConfidenceRouter:
         #      action="escalate", priority="high",
         #      requires_human=True, reason="Low confidence — escalating"
 
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
+
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+
+        if confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence - needs review",
+                priority="normal",
+                requires_human=True,
+            )
+
         return RoutingDecision(
-            action="auto_send",
+            action="escalate",
             confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+            reason="Low confidence - escalating",
+            priority="high",
+            requires_human=True,
+        )
 
 
 # ============================================================
@@ -109,27 +136,54 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "High-value or unusual transfer approval",
+        "trigger": (
+            "Trigger when a transfer exceeds the bank's threshold or looks abnormal "
+            "for the customer's history."
+        ),
+        "hitl_model": "human-in-the-loop",
+        "context_needed": (
+            "Transfer amount, destination account, customer balance, recent transfer "
+            "history, device/location signals, and fraud alerts."
+        ),
+        "example": (
+            "A customer who usually pays small local bills suddenly requests a large "
+            "transfer to a brand-new external beneficiary."
+        ),
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Identity recovery mismatch review",
+        "trigger": (
+            "Trigger when account recovery details do not fully match KYC records or "
+            "multiple verification attempts fail."
+        ),
+        "hitl_model": "human-as-tiebreaker",
+        "context_needed": (
+            "Submitted identity details, prior KYC records, failed verification logs, "
+            "recent login attempts, and linked contact history."
+        ),
+        "example": (
+            "A caller requests account unlock but provides the correct phone number "
+            "and an outdated national ID, creating a partial-match identity case."
+        ),
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Sensitive profile or credential change oversight",
+        "trigger": (
+            "Trigger when the user requests password resets, contact changes, or "
+            "personal-info updates alongside fraud indicators."
+        ),
+        "hitl_model": "human-on-the-loop",
+        "context_needed": (
+            "Requested profile changes, current profile values, authentication method, "
+            "session risk score, and recent fraud or takeover flags."
+        ),
+        "example": (
+            "A session asks to change phone number and reset online-banking password "
+            "immediately after logging in from a new device and unfamiliar location."
+        ),
     },
 ]
 
